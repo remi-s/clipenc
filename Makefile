@@ -1,11 +1,19 @@
 CC=gcc
+INSTALL=install
+
 CFLAGS=-W
 LDFLAGS=-lssl -lcrypto
-EXEC=clipenc
+
+prefix = /usr/local
+bindir = $(prefix)/bin
+
+BINFILES=clipenc
+SCRIPTFILES=c_enc c_dec c_gen
 SRC=clipenc.c key_mngt.c crypto.c
 OBJ=$(SRC:.c=.o)
 
-all: $(EXEC)
+
+all: $(BINFILES)
 
 clipenc: $(OBJ)
 	$(CC) -o $@ $^ $(LDFLAGS)
@@ -16,10 +24,13 @@ clipenc: $(OBJ)
 %.o: %.c
 	$(CC) -o $@ -c $< $(CFLAGS)
 
-.PHONY: clean mrproper
+install:
+	$(INSTALL) -d $(DESTDIR)$(bindir)
+	$(INSTALL) -m 755 $(BINFILES) $(SCRIPTFILES) $(DESTDIR)$(bindir)
+
+
+.PHONY: clean
 
 clean:
-	rm -rf *.o
+	rm -rf *.o $(BINFILES)
 
-mrproper: clean
-	rm -rf $(EXEC)
