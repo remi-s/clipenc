@@ -442,7 +442,7 @@ int fwrite_opt(char *fname, opt_t opt){
 void usage(){
 	fprintf(stderr,"\
 Usage: clipenc [-e | -d] [-g] [-k USER] [-i FILE_IN] [-o FILE_OUT] [-P PASSWD]  \n\
-       [--key_file K_FILE] [opt_file O_FILE] [--algo ALGO_NAME] [--kid KEY_ID] \n\
+       [--key_file K_FILE] [--opt_file O_FILE] [--algo ALGO_NAME] [--kid KEY_ID] \n\
        [--reset_key_file] [--reset_opt_file] [--use_pwd] [-h]\n");
 fprintf(stderr,"Easy encryption/decryption tool.\n\
 \n\
