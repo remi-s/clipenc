@@ -30,7 +30,13 @@
 * files in the program, then also delete it here.
 */
 
+#include <stdio.h>
 
 void erase_f();
 void erase_kspace();
 void erase_opt();
+void erase_file();
+
+void erase_file(FILE *f){
+
+}

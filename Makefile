@@ -9,7 +9,7 @@ bindir = $(prefix)/bin
 
 BINFILES=clipenc
 SCRIPTFILES=c_enc c_dec c_gen
-SRC=clipenc.c key_mngt.c crypto.c
+SRC=clipenc.c key_mngt.c crypto.c erase.c
 OBJ=$(SRC:.c=.o)
 
 

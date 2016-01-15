@@ -25,11 +25,12 @@ install_packages(){
 	PACKAGES=""
 
 	test_libssl=`ldconfig -p | grep libssl`
+	include_dir="/usr/include/openssl"
 	test_libcrypto=`ldconfig -p | grep libcrypto`
 	test_xclip=`which xclip`
 	test_python=`which python`
 
-	if [ -z "$test_libssl"] || [ -z "$test_libcrypto"] ; then
+	if [ -z "$test_libssl" ] || [ -z "$test_libcrypto" ] || [ ! -d "$include_dir" ]; then
 		PACKAGES="$PACKAGES libssl-dev"
 	fi
 	if [ -z "$test_xclip" ]; then
@@ -66,6 +67,7 @@ keybd_biding(){
 		./keybd_binding.py 'clipenc encryption' 'c_enc' '<Primary>e'
 		./keybd_binding.py 'clipenc decryption' 'c_dec' '<Primary>d'
 		./keybd_binding.py 'clipenc key generation' 'c_gen' '<Primary>g'
+		echo "keyboard binding done"
 	else
 		echo "clipenc keyboard shortcuts not created. Please refer to the documentation of your sytem for manual binding." >&2;
 	fi

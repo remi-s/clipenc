@@ -94,6 +94,78 @@ void b64_dec(unsigned char *in, int in_len, unsigned char *out, int *out_len){
 
 }
 
+void pbkdf2(char *pass, unsigned char *salt, unsigned char *out){
+	 PKCS5_PBKDF2_HMAC_SHA1(pass, -1, salt, 128, 100000, 32, out);
+}
+
+
+int file_decrypt(FILE *f, unsigned char *salt, char *pwd, unsigned char *iv, unsigned char *tag, FILE *fout){
+	unsigned char key[32];
+	unsigned char in_buff[4096];
+	unsigned char out_buff[4096];
+	int in_len, out_len, ret;	
+	EVP_CIPHER_CTX *ctx;
+
+	pbkdf2(pwd,salt,key);
+
+	if (!(ctx = EVP_CIPHER_CTX_new())) return -1;
+	if (!EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL))
+		return -1;
+	if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 16, NULL))
+		return -1;
+	if (!EVP_DecryptInit_ex(ctx, NULL, NULL, key, iv))
+		return -1;
+
+	do { 
+		in_len=fread(in_buff,1,4096,f);
+		if(!EVP_DecryptUpdate(ctx, out_buff, &out_len, in_buff, in_len))
+			return -1;
+		fwrite(out_buff,1,out_len,fout);
+	} while (in_len==4096);
+	
+	if(!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16, tag))
+		return -1;
+
+	ret = EVP_DecryptFinal_ex(ctx, out_buff, &out_len);
+	EVP_CIPHER_CTX_free(ctx);
+	if (!(ret>0)) {
+		return -1;
+	}
+	return 0;
+
+}
+
+int file_encrypt(FILE *f, unsigned char *salt, char *pwd, unsigned char *iv, FILE *fout, unsigned char *tag){
+	unsigned char key[32];
+	unsigned char in_buff[4096];
+	unsigned char out_buff[4096];
+	int in_len, out_len;	
+	EVP_CIPHER_CTX *ctx;
+	
+	pbkdf2(pwd,salt,key);
+
+	if (!(ctx = EVP_CIPHER_CTX_new())) return -1;
+	if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL))
+		return -1;
+	if (1 != EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 16, NULL))
+	 	return -1;
+	if (1 != EVP_EncryptInit_ex(ctx, NULL, NULL, key, iv)) return -1;
+
+	do { 
+		in_len=fread(in_buff,1,4096,f);
+		if(1 != EVP_EncryptUpdate(ctx, out_buff, &out_len, in_buff, in_len))
+			return -1;
+		fwrite(out_buff,1,out_len,fout);
+	} while (in_len==4096);
+	
+	if (1 != EVP_EncryptFinal_ex(ctx, out_buff, &out_len)) return -1;
+	if (1 != EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16, tag))
+		return -1;
+	EVP_CIPHER_CTX_free(ctx);
+	return 0;
+}
+
+
 void aes_cbc_encrypt(unsigned char *in, int in_len, unsigned char *out, int *out_len, unsigned char *key, int key_len, unsigned char *iv) {
 	
 	EVP_CIPHER_CTX ctx;

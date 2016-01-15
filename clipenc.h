@@ -42,4 +42,19 @@
 #define KEY_ID_SIZE 8
 #define ALGO_ID_SIZE 2
 
+
+#define DEBUG
+
+typedef struct opt{
+	int kid_flag;
+	unsigned char kid[KEY_ID_SIZE]; /* current kid */
+	unsigned char algo_id[ALGO_ID_SIZE]; /* default algo id used for the key generation */
+	int pwd_flag;
+	unsigned char pwd[MAX_PWD_SIZE];
+	unsigned char pwd_salt[16];
+	unsigned char kspace_name[500];
+	unsigned char opt_name[500];
+} opt_t;
+
+
 #endif

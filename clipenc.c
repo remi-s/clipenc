@@ -41,15 +41,7 @@
 #include "key_mngt.h"
 #include "crypto.h"
 
-//#define DEBUG
 
-typedef struct opt{
-	int kid_flag;
-	unsigned char kid[KEY_ID_SIZE]; /* current kid */
-	unsigned char algo_id[ALGO_ID_SIZE]; /* default algo id used for the key generation */
-	int pwd_flag;
-	unsigned char pwd[MAX_PWD_SIZE];
-} opt_t;
 
 typedef enum {
 	ENC,
@@ -486,11 +478,10 @@ int main (int argc, char **argv) {
 	int gflag=0;
 	int reset_key_file_flag=0;
 	int reset_opt_file_flag=0;
+	int use_pwd_flag=0;
 	FILE *fin=stdin;
 	FILE *fout=stdout;
 	char fname[500];
-	char fkspace[500];
-	char fopt[500];
 	
 	key_space_t kspace;
 	opt_t opt;
@@ -507,6 +498,7 @@ int main (int argc, char **argv) {
 		{"output_file", required_argument, 0, 'o'},
 		{"reset_key_file", no_argument, 0, 0},
 		{"reset_opt_file", no_argument, 0, 0},
+		{"use_pwd", no_argument, 0, 0 },
 		{"algo", required_argument, 0, 0 },
 		{"key_file", required_argument, 0, 0 },
 		{"opt_file", required_argument, 0, 0 },
@@ -519,8 +511,8 @@ int main (int argc, char **argv) {
 		fprintf(stderr,"error : can't locate home dir\n");
 		exit(1);
 	}
-	snprintf(fkspace,500,"%s/.clipenc_k",home_dir);
-	snprintf(fopt,500,"%s/.clipenc_opt",home_dir);
+	snprintf(opt.kspace_name,500,"%s/.clipenc_k",home_dir);
+	snprintf(opt.opt_name,500,"%s/.clipenc_opt",home_dir);
 	
 	opt.kid_flag=0;
 	opt.pwd_flag=0;
@@ -533,11 +525,13 @@ int main (int argc, char **argv) {
 		switch (c) {
 			case 0:
 				if (!strcmp(long_options[option_index].name,"key_file")) {
-					snprintf(fkspace,500,"%s",optarg);
+					snprintf(opt.kspace_name,500,"%s",optarg);
 				} else if (!strcmp(long_options[option_index].name,"reset_key_file")){
 					reset_key_file_flag=1;
 				} else if (!strcmp(long_options[option_index].name,"reset_opt_file")){
 					reset_opt_file_flag=1;
+				} else if (!strcmp(long_options[option_index].name,"use_pwd")){
+					use_pwd_flag=1;
 				}
 			break;
 				
@@ -575,41 +569,39 @@ int main (int argc, char **argv) {
 				
 		}
 	}
-	if ((access(fkspace, F_OK ) == -1 )||(reset_key_file_flag)) {
-		fprintf(stderr,"generation of key file %s\n",fkspace);
-		fcreate_kspace(fkspace);
+	if ((access(opt.kspace_name, F_OK ) == -1 )||(reset_key_file_flag)) {
+		fprintf(stderr,"generation of key file %s\n",opt.kspace_name);
+		fcreate_kspace(opt.kspace_name);
 	}
-	if ((access(fopt, F_OK ) == -1 )||(reset_opt_file_flag)) {
-		fprintf(stderr,"generation of opt file %s\n",fopt);
-		fcreate_opt(fopt);
+	if ((access(opt.opt_name, F_OK ) == -1 )||(reset_opt_file_flag)) {
+		fprintf(stderr,"generation of opt file %s\n",opt.opt_name);
+		fcreate_opt(opt.opt_name);
 	}
 	
-	if (fread_kspace(fkspace,&kspace) !=0) {
-		fprintf(stderr,"error : can't load key_file %s\n",fkspace);
+	if (use_pwd_flag) {
+		fencrypt_kspace(&opt);
+	}
+
+	if (fread_kspace(&opt,&kspace) !=0) {
+		fprintf(stderr,"error : can't load key_file %s\n",opt.kspace_name);
 		exit(1);
 	}
 
-	if (fread_opt(fopt,&opt) !=0) {
-		fprintf(stderr,"error : can't load opt_file %s\n",fopt);
+	if (fread_opt(opt.opt_name,&opt) !=0) {
+		fprintf(stderr,"error : can't load opt_file %s\n",opt.opt_name);
 		exit(1);
 	}
 
-	
-	
+#ifdef DEBUG
+	fprint_kspace(stderr,kspace);
+	fprint_opt(stderr,opt);
+#endif
+
 	if (eflag && dflag)  {
 		usage();
 		exit(1);
 	}
-	if (eflag || dflag) {
-		int len;
-		len=fread(in_buff.d, 1, MAX_BUFF_SIZE,fin);
-		if (len>(MAX_BUFF_SIZE-100)){
-			fprintf(stderr,"error : too much data in input\n"); // TODO : split the data
-			exit(1);
-		}
 
-		in_buff.len=len;
-	}
 
 	if (gflag) {
 		sym_key_t k;
@@ -622,37 +614,37 @@ int main (int argc, char **argv) {
 		memcpy(opt.kid,k.key_id,KEY_ID_SIZE);
 		// TODO : output the key 
 	}
-	
 
-	
-	if (eflag) {
+	if (eflag || dflag) {
+		int len;
 		cmd_t cmd;
-		gen_enc_cmd(&cmd, &opt);
-		send_process(&in_buff, &out_buff, kspace, cmd, opt);
+
+		do {
+			len=fread(in_buff.d, 1, MAX_BUFF_SIZE-100,fin);
+			in_buff.len=len;
+			gen_enc_cmd(&cmd, &opt);
+			if (eflag) {
+				send_process(&in_buff, &out_buff, kspace, cmd, opt);
+			} else if (dflag) {
+				rcvd_process(&in_buff, &out_buff, &kspace, &cmd, &opt);
+			}
+
+			fwrite(out_buff.d, 1, out_buff.offset, fout);
+			in_buff.offset=0;
+			out_buff.offset=0;
+			out_buff.len=MAX_BUFF_SIZE;
+
+		} while (len==MAX_BUFF_SIZE-100);
+
 	}
 
-	if (dflag) {
-		cmd_t cmd;
-		gen_enc_cmd(&cmd, &opt);
-		rcvd_process(&in_buff, &out_buff, &kspace, &cmd, &opt);
-	}
-	
-	if (eflag || dflag){ 
-		fwrite(out_buff.d, 1, out_buff.offset, fout);
-	}
 
 
-#ifdef DEBUG
-	fprint_kspace(stderr,kspace);
-	fprint_opt(stderr,opt);
-#endif
-
-
-	if (fwrite_kspace(fkspace,kspace)!=0) {
-		fprintf(stderr,"error : can't save keyspace in file %s\n",fkspace);
+	if (fwrite_kspace(opt,kspace)!=0) {
+		fprintf(stderr,"error : can't save keyspace in file %s\n",opt.kspace_name);
 		exit(1);
 	}
-	fwrite_opt(fopt,opt);
+	fwrite_opt(opt.opt_name,opt);
 
 }	
 
